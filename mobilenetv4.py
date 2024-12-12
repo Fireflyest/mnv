@@ -315,7 +315,7 @@ class MobileNetV4(nn.Module):
         self.layer5 = build_blocks(self.spec['layer5'])
 
         self.fc = nn.Linear(1280, class_nums)
-        self.softmax = nn.Softmax(dim=1)
+        self.softmax = nn.Softdmax(dim=1)
 
     def forward(self, x):
 
@@ -332,3 +332,93 @@ class MobileNetV4(nn.Module):
         out = self.fc(torch.flatten(x5, 1))
         return self.softmax(out)
 
+
+
+class MobileNet(nn.Module):
+    def __init__(self, class_nums=4):
+        super().__init__()
+
+        # conv0
+        self.conv0 = build_blocks(MNV4ConvSmall_BLOCK_SPECS['conv0'])
+        # layer1
+        self.layer1 = build_blocks(MNV4ConvSmall_BLOCK_SPECS['layer1'])
+        # layer2
+        self.layer2 = build_blocks(MNV4ConvSmall_BLOCK_SPECS['layer2'])
+        # layer3
+        self.layer3 = build_blocks(MNV4ConvSmall_BLOCK_SPECS['layer3'])
+        # layer4
+        self.layer4 = build_blocks(MNV4ConvSmall_BLOCK_SPECS['layer4'])
+        # layer5   
+        self.layer5 = build_blocks(MNV4ConvSmall_BLOCK_SPECS['layer5'])
+
+        self.fc = nn.Linear(1280, class_nums)
+
+    def forward(self, x):
+        x0 = self.conv0(x)
+        x1 = self.layer1(x0)
+        x2 = self.layer2(x1)
+        x3 = self.layer3(x2)
+        x4 = self.layer4(x3)
+        x5 = self.layer5(x4)
+        x5 = nn.functional.adaptive_avg_pool2d(x5, 1)
+        out = self.fc(torch.flatten(x5, 1))
+        return out
+        # return torch.softmax(out, dim=1)
+
+MNV4ConvSmall_BLOCK_SPECS = {
+    "conv0": {
+        "block_name": "convbn",
+        "num_blocks": 1,
+        "block_specs": [
+            [3, 32, 3, 2]
+        ]
+    },
+    "layer1": {
+        "block_name": "convbn",
+        "num_blocks": 2,
+        "block_specs": [
+            [32, 32, 3, 2],
+            [32, 32, 1, 1]
+        ]
+    },
+    "layer2": {
+        "block_name": "convbn",
+        "num_blocks": 2,
+        "block_specs": [
+            [32, 96, 3, 2],
+            [96, 64, 1, 1]
+        ]
+    },
+    "layer3": {
+        "block_name": "uib",
+        "num_blocks": 6,
+        "block_specs": [
+            [64, 96, 5, 5, True, 2, 3],
+            [96, 96, 0, 3, True, 1, 2],
+            [96, 96, 0, 3, True, 1, 2],
+            [96, 96, 0, 3, True, 1, 2],
+            [96, 96, 0, 3, True, 1, 2],
+            [96, 96, 3, 0, True, 1, 4],
+        ]
+    },
+    "layer4": {
+        "block_name": "uib",
+        "num_blocks": 6,
+        "block_specs": [
+            [96,  128, 3, 3, True, 2, 6],
+            [128, 128, 5, 5, True, 1, 4],
+            [128, 128, 0, 5, True, 1, 4],
+            [128, 128, 0, 5, True, 1, 3],
+            [128, 128, 0, 3, True, 1, 4],
+            [128, 128, 0, 3, True, 1, 4],
+        ]
+    },  
+    "layer5": {
+        "block_name": "convbn",
+        "num_blocks": 2,
+        "block_specs": [
+            [128, 960, 1, 1],
+            [960, 1280, 1, 1]
+        ]
+    }
+}
