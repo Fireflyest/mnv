@@ -19,20 +19,20 @@ device = (
 # 设置数据加载器
 transform = transforms.Compose([
     transforms.RandomHorizontalFlip(),
-    transforms.RandomCrop(400),
+    # transforms.RandomCrop(400),
     transforms.Resize(224),
-    transforms.ColorJitter(brightness=.2, hue=.08),
+    # transforms.ColorJitter(brightness=.2, hue=.2),
     transforms.GaussianBlur(5, sigma=(0.1, 2.0)),
     # transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
     transforms.RandomAffine(degrees=0, shear=(-30, 30)),  # 添加水平翻转角度
     # data.HorizontalRandomPerspective(distortion_scale=0.6, p=0.6),
     transforms.ToTensor(),
-    transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3)),
+    # transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3)),
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
 ])
 
 # full_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-dataset = data.HuaLiDataset(root_dir='./data/huali/train0', transform=transform)
+dataset = data.HuaLiDataset(root_dir='./data/huali/train2', transform=transform)
 
 # 划分训练集和验证集
 train_size = int(0.8 * len(dataset))
