@@ -27,15 +27,15 @@ transform = transforms.Compose([
     transforms.RandomAffine(degrees=0, shear=(-30, 30)),  # 添加水平翻转角度
     # data.HorizontalRandomPerspective(distortion_scale=0.6, p=0.6),
     transforms.ToTensor(),
-    # transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3)),
+    transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3)),
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
 ])
 
 # full_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-dataset = data.HuaLiDataset(root_dir='./data/huali/train2', transform=transform)
+dataset = data.HuaLiDataset(root_dir='./data/huali/train5', transform=transform)
 
 # 划分训练集和验证集
-train_size = int(0.8 * len(dataset))
+train_size = int(0.7 * len(dataset))
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 
@@ -46,11 +46,12 @@ test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 # Support ['MobileNetV4ConvSmall', 'MobileNetV4ConvMedium', 'MobileNetV4ConvLarge']
 # Also supported ['MobileNetV4HybridMedium', 'MobileNetV4HybridLarge']
 model = mobilenetv4.MobileNet(class_nums=len(dataset.classes)).to(device)
-criterion = nn.CrossEntropyLoss()
+criterion_class = nn.CrossEntropyLoss()
+criterion_moire = nn.BCELoss()
 optimizer = optim.Adam(model.parameters())
 
 # 训练模型
-def train_model(model, criterion, optimizer, train_loader, test_loader, epochs=100):
+def train_model(model, criterion_class, criterion_moire, optimizer, train_loader, test_loader, epochs=50):
     train_losses, test_losses = [], []
     train_accs, test_accs = [], []
     best_acc = 0.0
@@ -58,53 +59,72 @@ def train_model(model, criterion, optimizer, train_loader, test_loader, epochs=1
     for epoch in range(epochs):
         model.train()
         train_loss = 0
-        correct = 0
+        correct_class = 0
+        correct_moire = 0
         total = 0
-        for batch_idx, (data, target) in enumerate(train_loader):
+        for batch_idx, (data, target_class, target_moire) in enumerate(train_loader):
             data = data.to(device)
-            target = target.to(device)
+            target_class = target_class.to(device)
+            target_moire = target_moire.to(device).float().unsqueeze(1)
             optimizer.zero_grad()
-            output = model(data)
-            loss = criterion(output, target)
+            output_class, output_moire = model(data)
+            loss_class = criterion_class(output_class, target_class)
+            loss_moire = criterion_moire(output_moire, target_moire)
+            loss = loss_class + loss_moire
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
-            _, predicted = torch.max(output.data, 1)
-            total += target.size(0)
-            correct += (predicted == target).sum().item()
-        
+            _, predicted_class = torch.max(output_class.data, 1)
+            predicted_moire = (output_moire > 0.5).float()
+            total += target_class.size(0)
+            correct_class += (predicted_class == target_class).sum().item()
+            correct_moire += (predicted_moire == target_moire).sum().item()
+
         train_losses.append(train_loss / len(train_loader))
-        train_accs.append(correct / total)
+        train_accs.append(correct_class / total)
         
         model.eval()
         test_loss = 0
-        correct = 0
+        correct_class = 0
+        correct_moire = 0
         total = 0
         with torch.no_grad():
-            for data, target in test_loader:
+            for data, target_class, target_moire in test_loader:
                 data = data.to(device)
-                target = target.to(device)
-                output = model(data)
-                loss = criterion(output, target)
+                target_class = target_class.to(device)
+                target_moire = target_moire.to(device).float().unsqueeze(1)
+                output_class, output_moire = model(data)
+                loss_class = criterion_class(output_class, target_class)
+                loss_moire = criterion_moire(output_moire, target_moire)
+                loss = loss_class + loss_moire
                 test_loss += loss.item()
-                _, predicted = torch.max(output.data, 1)
-                total += target.size(0)
-                correct += (predicted == target).sum().item()
+                _, predicted_class = torch.max(output_class.data, 1)
+                predicted_moire = (output_moire > 0.5).float()
+                total += target_class.size(0)
+                correct_class += (predicted_class == target_class).sum().item()
+                correct_moire += (predicted_moire == target_moire).sum().item()
         
         test_losses.append(test_loss / len(test_loader))
-        test_accs.append(correct / total)
+        test_accs.append(correct_class / total)
         
-        print(f'Epoch {epoch+1}, Train Loss: {train_losses[-1]:.4f}, Train Acc: {train_accs[-1]:.4f}, Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accs[-1]:.4f}')
+        print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss / len(train_loader):.4f}, "
+              f"Train Class Acc: {correct_class / total:.4f}, Train Moire Acc: {correct_moire / total:.4f}, "
+              f"Test Loss: {test_loss / len(test_loader):.4f}, Test Class Acc: {correct_class / total:.4f}, "
+              f"Test Moire Acc: {correct_moire / total:.4f}")
     
         # Save the best model
-        if test_accs[-1] > best_acc:
+        if epoch > epochs * 0.4 and test_accs[-1] > best_acc:
             best_acc = test_accs[-1]
             torch.save(model.state_dict(), './out/mobilenetv4.pth')
+            print(f'Save the best model with accuracy: {best_acc:.4f}')
+    
+    # save the last model
+    torch.save(model.state_dict(), './out/mobilenetv4_last.pth')
 
     return train_losses, test_losses, train_accs, test_accs
 
 # 运行训练
-train_losses, test_losses, train_accs, test_accs = train_model(model, criterion, optimizer, train_loader, test_loader)
+train_losses, test_losses, train_accs, test_accs = train_model(model, criterion_class, criterion_moire, optimizer, train_loader, test_loader)
 
 # 绘制准确率曲线
 plt.figure(figsize=(12, 4))

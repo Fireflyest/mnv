@@ -1,7 +1,6 @@
 import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
-
 import matplotlib.pyplot as plt
 import random
 import numpy as np
@@ -40,7 +39,7 @@ random_indices = random.sample(range(len(dataset)), 12)
 selected_images = [dataset[i] for i in random_indices]
 
 # Prepare the images for prediction
-images = torch.stack([img for img, _ in selected_images])
+images = torch.stack([img for img, _, _ in selected_images])
 images = images.to(device)
 
 # Load the model
@@ -57,16 +56,18 @@ grad_cam = vision.GradCAM(model, target_layer)
 # Predict the classes of the selected images and generate CAMs
 with torch.no_grad():
     outputs = model(images)
-    probabilities, predicted = torch.max(outputs, 1)
+    class_outputs, moire_outputs = outputs
+    probabilities, predicted = torch.max(class_outputs, 1)
+    moire_predictions = (moire_outputs > 0.5).float()
 
 # Print the predicted classes and probabilities
 for i, idx in enumerate(random_indices):
-    print(f"Image {idx} predicted class: {predicted[i].item()} with probability: {probabilities[i].item()}")
+    print(f"Image {idx} predicted class: {predicted[i].item()} with probability: {probabilities[i].item()}, moire: {moire_predictions[i].item()}")
 
 # 用plt显示十二张图片的预测结果和Grad-CAM
 fig, axes = plt.subplots(3, 4, figsize=(20, 15))
 axes = axes.flatten()
-for i, (img, label) in enumerate(selected_images):
+for i, (img, label, moire_label) in enumerate(selected_images):
     # Convert the image tensor to a NumPy array
     img_np = img.permute(1, 2, 0).cpu().numpy()
     img_np = img_np * np.array([0.229, 0.224, 0.225]) + np.array([0.485, 0.456, 0.406])
@@ -79,8 +80,7 @@ for i, (img, label) in enumerate(selected_images):
     cam_image = vision.show_cam_on_image(img_np, cam)
 
     axes[i].imshow(cam_image)
-    axes[i].set_title(f"Predicted: {predicted[i].item()} ({probabilities[i].item():.2f})\nActual: {dataset.classes[label]}")
+    axes[i].set_title(f"Predicted: {predicted[i].item()} ({probabilities[i].item():.2f})\nActual: {dataset.classes[label]}, Moire: {moire_predictions[i].item()}")
     axes[i].axis("off")
 
 plt.savefig('./out/val_cam.png')
-plt.show()

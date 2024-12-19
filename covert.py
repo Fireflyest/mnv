@@ -11,7 +11,7 @@ model.eval()
 dummy_input = torch.randn(1, 3, 224, 224)
 torch.onnx.export(model, dummy_input, './out/mobilenetv4.onnx', 
                   input_names=['input'], 
-                  output_names=['output'],
-                  dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}})
+                  output_names=['class_output', 'moire_output'],
+                  dynamic_axes={'input': {0: 'batch_size'}, 'class_output': {0: 'batch_size'}, 'moire_output': {0: 'batch_size'}})
 
 print('Model exported to ONNX.')
