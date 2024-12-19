@@ -35,7 +35,7 @@ transform = transforms.Compose([
 dataset = data.HuaLiDataset(root_dir='./data/huali/train2', transform=transform)
 
 # 划分训练集和验证集
-train_size = int(0.8 * len(dataset))
+train_size = int(0.7 * len(dataset))
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 
