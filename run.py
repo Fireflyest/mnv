@@ -46,6 +46,7 @@ images = images.to(device)
 # Load the model
 model = mobilenetv4.MobileNet(len(dataset.classes)).to(device)
 model.load_state_dict(torch.load('./out/mobilenetv4.pth', weights_only=True))
+# model.load_state_dict(torch.load('./out/t_mobilenetv4.pth', weights_only=True))
 model.eval()
 
 # Select the target layer for Grad-CAM

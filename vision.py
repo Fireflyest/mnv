@@ -22,7 +22,7 @@ class GradCAM:
             self.gradients = grad_out[0]
 
         self.target_layer.register_forward_hook(forward_hook)
-        self.target_layer.register_backward_hook(backward_hook)
+        self.target_layer.register_full_backward_hook(backward_hook)
 
     def generate_cam(self, input_image, target_class=None):
         self.model.eval()

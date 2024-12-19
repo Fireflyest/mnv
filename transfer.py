@@ -5,7 +5,8 @@ from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 
-import mobilenetv4
+import timm
+
 import data
 
 device = (
@@ -15,6 +16,7 @@ device = (
     if torch.backends.mps.is_available()
     else "cpu"
 )
+
 
 # 设置数据加载器
 transform = transforms.Compose([
@@ -31,7 +33,6 @@ transform = transforms.Compose([
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
 ])
 
-# full_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
 dataset = data.HuaLiDataset(root_dir='./data/huali/train7', transform=transform)
 
 # 划分训练集和验证集
@@ -42,12 +43,22 @@ train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-# 设置模型，损失函数和优化器
-# Support ['MobileNetV4ConvSmall', 'MobileNetV4ConvMedium', 'MobileNetV4ConvLarge']
-# Also supported ['MobileNetV4HybridMedium', 'MobileNetV4HybridLarge']
-model = mobilenetv4.MobileNet(class_nums=len(dataset.classes)).to(device)
+model = timm.create_model('hf_hub:timm/mobilenetv4_conv_small.e2400_r224_in1k', pretrained=True)
+# 修改最后一层
+num_classes = 5
+model.fc = nn.Linear(model.fc.in_features, num_classes)
+
+# 冻结部分层
+for param in model.parameters():
+    param.requires_grad = False
+
+# 只训练最后一层
+for param in model.fc.parameters():
+    param.requires_grad = True
+
+# 定义损失函数和优化器
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters())
+optimizer = torch.optim.Adam(model.fc.parameters(), lr=0.001)
 
 # 训练模型
 def train_model(model, criterion, optimizer, train_loader, test_loader, epochs=50):
@@ -99,11 +110,11 @@ def train_model(model, criterion, optimizer, train_loader, test_loader, epochs=5
         # Save the best model
         if epoch > epochs * 0.4 and test_accs[-1] > best_acc:
             best_acc = test_accs[-1]
-            torch.save(model.state_dict(), './out/mobilenetv4.pth')
+            torch.save(model.state_dict(), './out/t_mobilenetv4.pth')
             print(f'Save the best model with accuracy: {best_acc:.4f}')
     
     # save the last model
-    torch.save(model.state_dict(), './out/mobilenetv4_last.pth')
+    torch.save(model.state_dict(), './out/t_mobilenetv4_last.pth')
 
     return train_losses, test_losses, train_accs, test_accs
 
@@ -128,4 +139,4 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend()
 
-plt.savefig('./out/acc.png')
+plt.savefig('./out/acc_transfer.png')
