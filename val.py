@@ -1,5 +1,6 @@
 import torch
-from torchvision import transforms
+import torchvision.transforms as transforms
+import torchvision.models as models
 from torch.utils.data import DataLoader
 
 import matplotlib.pyplot as plt
@@ -43,14 +44,34 @@ selected_images = [dataset[i] for i in random_indices]
 images = torch.stack([img for img, _ in selected_images])
 images = images.to(device)
 
+
+
+# 加载模型
+
 # Load the model
-model = mobilenetv4.MobileNet(len(dataset.classes)).to(device)
-model.load_state_dict(torch.load('./out/mobilenetv4.pth', weights_only=True))
-# model.load_state_dict(torch.load('./out/t_mobilenetv4.pth', weights_only=True))
+# model = mobilenetv4.MobileNet(len(dataset.classes)).to(device)
+# model.load_state_dict(torch.load('./out/mobilenetv4.pth', weights_only=True))
+# model.eval()
+
+# 加载预训练的 MobileNetV3 模型
+model = models.mobilenet_v3_large()
+# 修改最后一层
+num_classes = 5
+model.classifier[3] = torch.nn.Linear(model.classifier[3].in_features, num_classes)
+model.to(device)
+model.load_state_dict(torch.load('./out/mobilenetv3_best_finetuned.pth', weights_only=True))
 model.eval()
 
+
+
+# 选择要显示的层
+
 # Select the target layer for Grad-CAM
-target_layer = model.layer4[-1]
+# target_layer = model.layer4[-1]
+target_layer = model.features[-1]  # MobileNetV3 的最后一个卷积层
+
+
+
 
 # Initialize Grad-CAM
 grad_cam = vision.GradCAM(model, target_layer)

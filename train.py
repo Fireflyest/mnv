@@ -19,6 +19,7 @@ device = (
 # 设置数据加载器
 transform = transforms.Compose([
     transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(15),
     # transforms.RandomCrop(400),
     transforms.Resize(224),
     # transforms.ColorJitter(brightness=.2, hue=.2),

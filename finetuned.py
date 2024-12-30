@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision import transforms
+import torchvision.transforms as transforms
+import torchvision.models as models
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 
@@ -43,22 +44,28 @@ train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-model = timm.create_model('hf_hub:timm/mobilenetv4_conv_small.e2400_r224_in1k', pretrained=True)
+# 加载预训练的 MobileNetV3 模型
+weights = models.MobileNet_V3_Large_Weights.IMAGENET1K_V1
+model = models.mobilenet_v3_large(weights=weights)
+
 # 修改最后一层
 num_classes = 5
-model.fc = nn.Linear(model.fc.in_features, num_classes)
+model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
 
 # 冻结部分层
 for param in model.parameters():
     param.requires_grad = False
 
 # 只训练最后一层
-for param in model.fc.parameters():
+for param in model.classifier[3].parameters():
     param.requires_grad = True
+
+# 将模型移动到设备
+model.to(device)
 
 # 定义损失函数和优化器
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.fc.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.classifier[3].parameters(), lr=0.001)
 
 # 训练模型
 def train_model(model, criterion, optimizer, train_loader, test_loader, epochs=50):
@@ -110,11 +117,11 @@ def train_model(model, criterion, optimizer, train_loader, test_loader, epochs=5
         # Save the best model
         if epoch > epochs * 0.4 and test_accs[-1] > best_acc:
             best_acc = test_accs[-1]
-            torch.save(model.state_dict(), './out/t_mobilenetv4.pth')
+            torch.save(model.state_dict(), './out/mobilenetv3_best_finetuned.pth')
             print(f'Save the best model with accuracy: {best_acc:.4f}')
     
     # save the last model
-    torch.save(model.state_dict(), './out/t_mobilenetv4_last.pth')
+    torch.save(model.state_dict(), './out/mobilenetv3_last_finetuned.pth')
 
     return train_losses, test_losses, train_accs, test_accs
 
@@ -139,4 +146,4 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend()
 
-plt.savefig('./out/acc_transfer.png')
+plt.savefig('./out/acc_loss_finetuned.png')
