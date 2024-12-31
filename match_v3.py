@@ -7,7 +7,8 @@ import numpy as np
 import cv2
 
 # 加载预训练的 MobileNetV3 模型
-model = models.mobilenet_v3_small(pretrained=True)
+weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
+model = models.mobilenet_v3_small(weights=weights)
 model.classifier = nn.Identity()  # 移除分类层，只保留特征提取层
 model.eval()
 

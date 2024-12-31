@@ -45,8 +45,8 @@ train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
 # 加载预训练的 MobileNetV3 模型
-weights = models.MobileNet_V3_Large_Weights.IMAGENET1K_V1
-model = models.mobilenet_v3_large(weights=weights)
+weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
+model = models.mobilenet_v3_small(weights=weights)
 
 # 修改最后一层
 num_classes = 5
