@@ -11,7 +11,7 @@ import timm
 import data
 
 device = (
-    "cuda:3"
+    "cuda"
     if torch.cuda.is_available()
     else "mps"
     if torch.backends.mps.is_available()
@@ -28,6 +28,7 @@ transform = transforms.Compose([
     transforms.GaussianBlur(5, sigma=(0.1, 2.0)),
     # transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
     transforms.RandomAffine(degrees=0, shear=(-30, 30)),  # 添加水平翻转角度
+    transforms.RandomAffine(degrees=(-15, 15)),  # 添加不同倾斜角度
     # data.HorizontalRandomPerspective(distortion_scale=0.6, p=0.6),
     transforms.ToTensor(),
     transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3)),
@@ -50,8 +51,10 @@ model = models.mobilenet_v3_small(weights=weights)
 
 # 修改最后一层
 num_classes = 5
-model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
-
+model.classifier[3] = nn.Sequential(
+    nn.Linear(model.classifier[3].in_features, num_classes),
+    nn.Softmax(dim=1)
+)
 # 冻结部分层
 for param in model.parameters():
     param.requires_grad = False

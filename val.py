@@ -33,7 +33,7 @@ transform = transforms.Compose([
 ])
 
 # Assuming HuaLiDataset and model are already defined and loaded
-dataset = data.HuaLiDataset(root_dir='./data/huali/test', transform=transform)
+dataset = data.HuaLiDataset(root_dir='./data/huali/test1', transform=transform)
 dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
 # Randomly select five images
@@ -54,10 +54,13 @@ images = images.to(device)
 # model.eval()
 
 # 加载预训练的 MobileNetV3 模型
-model = models.mobilenet_v3_large()
+model = models.mobilenet_v3_small()
 # 修改最后一层
 num_classes = 5
-model.classifier[3] = torch.nn.Linear(model.classifier[3].in_features, num_classes)
+model.classifier[3] = torch.nn.Sequential(
+    torch.nn.Linear(model.classifier[3].in_features, num_classes),
+    torch.nn.Softmax(dim=1)
+)
 model.to(device)
 model.load_state_dict(torch.load('./out/mobilenetv3_best_finetuned.pth', weights_only=True))
 model.eval()
