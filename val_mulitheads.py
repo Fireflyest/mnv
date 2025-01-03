@@ -75,18 +75,18 @@ grad_cam = vision.GradCAM(model, target_layer)
 # Predict the classes of the selected images and generate CAMs
 with torch.no_grad():
     outputs = model(images)
-    class_outputs, logit_outputs = outputs
+    class_outputs, logic_outputs = outputs
     probabilities, predicted = torch.max(class_outputs, 1)
-    logit_predictions = (logit_outputs > 0.5).float()
+    logic_predictions = (logic_outputs > 0.5).float()
 
 # Print the predicted classes and probabilities
 for i, idx in enumerate(random_indices):
-    print(f"Image {idx} predicted class: {predicted[i].item()} with probability: {probabilities[i].item()}, logit: {logit_predictions[i].item()}")
+    print(f"Image {idx} predicted class: {predicted[i].item()} with probability: {probabilities[i].item()}, logic: {logic_predictions[i].item()}")
 
 # 用plt显示十二张图片的预测结果和Grad-CAM
 fig, axes = plt.subplots(3, 4, figsize=(20, 15))
 axes = axes.flatten()
-for i, (img, label, logit_label) in enumerate(selected_images):
+for i, (img, label, logic_label) in enumerate(selected_images):
     # Convert the image tensor to a NumPy array
     img_np = img.permute(1, 2, 0).cpu().numpy()
     img_np = img_np * np.array([0.229, 0.224, 0.225]) + np.array([0.485, 0.456, 0.406])
@@ -99,7 +99,7 @@ for i, (img, label, logit_label) in enumerate(selected_images):
     cam_image = vision.show_cam_on_image(img_np, cam)
 
     axes[i].imshow(cam_image)
-    axes[i].set_title(f"Predicted: {predicted[i].item()} ({probabilities[i].item():.2f})\nActual: {dataset.classes[label]}, logit: {logit_predictions[i].item()}")
+    axes[i].set_title(f"Predicted: {predicted[i].item()} ({probabilities[i].item():.2f})\nActual: {dataset.classes[label]}, logic: {logic_predictions[i].item()}")
     axes[i].axis("off")
 
 plt.savefig('./out/val_cam_multiheads.png')

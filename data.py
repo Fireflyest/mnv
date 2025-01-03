@@ -43,7 +43,7 @@ class HuaLiDataset_Multi(Dataset):
         self.transform = transform
         self.image_paths = []
         self.labels = []
-        self.logit_labels = []
+        self.logic_labels = []
         self.classes = category_names
         self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(self.classes)}
 
@@ -53,7 +53,7 @@ class HuaLiDataset_Multi(Dataset):
                 img_path = os.path.join(cls_dir, img_name)
                 self.image_paths.append(img_path)
                 self.labels.append(self.class_to_idx[cls_name])
-                self.logit_labels.append(1 if img_name.startswith('_') else 0)
+                self.logic_labels.append(1 if img_name.startswith('_') else 0)
 
     def __len__(self):
         return len(self.image_paths)
@@ -62,12 +62,12 @@ class HuaLiDataset_Multi(Dataset):
         img_path = self.image_paths[idx]
         image = Image.open(img_path).convert('RGB')
         label = self.labels[idx]
-        logit_label = self.logit_labels[idx]
+        logic_label = self.logic_labels[idx]
 
         if self.transform:
             image = self.transform(image)
 
-        return image, label, logit_label
+        return image, label, logic_label
 
 class HorizontalRandomPerspective:
     def __init__(self, distortion_scale=0.5, p=0.5, interpolation=Image.BILINEAR):
