@@ -50,6 +50,32 @@ class GradCAM:
         cam = cam / np.max(cam)
         return cam
 
+    def generate_cam_multi(self, input_image, target_class=None):
+        self.model.eval()
+        class_output, _ = self.model(input_image)
+
+        if target_class is None:
+            target_class = class_output.argmax(dim=1).item()
+
+        self.model.zero_grad()
+        target = class_output[0, target_class]
+        target.backward()
+
+        gradients = self.gradients[0].cpu().data.numpy()
+        activations = self.activations[0].cpu().data.numpy()
+
+        weights = np.mean(gradients, axis=(1, 2))
+        cam = np.zeros(activations.shape[1:], dtype=np.float32)
+
+        for i, w in enumerate(weights):
+            cam += w * activations[i]
+
+        cam = np.maximum(cam, 0)
+        cam = cv2.resize(cam, (input_image.shape[2], input_image.shape[3]))
+        cam = cam - np.min(cam)
+        cam = cam / np.max(cam)
+        return cam
+
 def show_cam_on_image(img, mask):
     heatmap = cv2.applyColorMap(np.uint8(255 * mask), cv2.COLORMAP_JET)
     heatmap = np.float32(heatmap) / 255
