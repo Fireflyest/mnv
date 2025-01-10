@@ -22,10 +22,10 @@ transform = transforms.Compose([
     transforms.RandomHorizontalFlip(),
     # transforms.RandomCrop(400),
     transforms.Resize(224),
-    # transforms.ColorJitter(brightness=.2, hue=.2),
+    transforms.ColorJitter(brightness=.2, hue=.2),
     transforms.GaussianBlur(5, sigma=(0.1, 2.0)),
     # transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
-    transforms.RandomAffine(degrees=0, shear=(-30, 30)),  # 添加水平翻转角度
+    # transforms.RandomAffine(degrees=0, shear=(-30, 30)),  # 添加水平翻转角度
     transforms.RandomAffine(degrees=(-15, 15)),  # 添加不同倾斜角度
     # data.HorizontalRandomPerspective(distortion_scale=0.6, p=0.6),
     transforms.ToTensor(),
@@ -65,9 +65,9 @@ criterion2 = nn.BCELoss()
 optimizer = optim.Adam(list(model.head1.parameters()) + list(model.head2.parameters()), lr=0.001)
 
 # 训练模型
-def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loader, epochs=30):
+def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loader, epochs=50):
     train_losses, test_losses = [], []
-    train_accs, test_accs = [], []
+    train_accs1, train_accs2, test_accs1, test_accs2 = [], [], [], []
     best_acc = 0.0
 
     for epoch in range(epochs):
@@ -76,12 +76,12 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
         correct1 = 0
         correct2 = 0
         total = 0
-        for data, target1, target2 in train_loader:
+        for batch_idx, (data, target1, target2) in enumerate(train_loader):
             data = data.to(device)
             target1 = target1.to(device)
             target2 = target2.to(device).float()
             optimizer.zero_grad()
-            output1, output2 = model(data)
+            output1, output2, _ = model(data)
             loss1 = criterion1(output1, target1)
             loss2 = criterion2(output2.squeeze(), target2)
             loss = loss1 + loss2
@@ -95,7 +95,8 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
             correct2 += (predicted2.squeeze() == target2).sum().item()
         
         train_losses.append(train_loss / len(train_loader))
-        train_accs.append((correct1 + correct2) / (2 * total))
+        train_accs1.append(correct1 / total)
+        train_accs2.append(correct2 / total)
         
         model.eval()
         test_loss = 0
@@ -107,7 +108,7 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
                 data = data.to(device)
                 target1 = target1.to(device)
                 target2 = target2.to(device).float()
-                output1, output2 = model(data)
+                output1, output2, _ = model(data)
                 loss1 = criterion1(output1, target1)
                 loss2 = criterion2(output2.squeeze(), target2)
                 loss = loss1 + loss2
@@ -119,23 +120,23 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
                 correct2 += (predicted2.squeeze() == target2).sum().item()
         
         test_losses.append(test_loss / len(test_loader))
-        test_accs.append((correct1 + correct2) / (2 * total))
+        test_accs1.append(correct1 / total)
+        test_accs2.append(correct2 / total)
 
-        print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_losses[-1]:.4f}, Train Acc: {train_accs[-1]:.4f}, Test Loss: {test_losses[-1]:.4f}, Test Acc: {test_accs[-1]:.4f}")
+        print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_losses[-1]:.4f}, Train Acc Class: {train_accs1[-1]:.4f}, Train Acc Logic: {train_accs2[-1]:.4f}, Test Loss: {test_losses[-1]:.4f}, Test Acc Class: {test_accs1[-1]:.4f}, Test Acc Logic: {test_accs2[-1]:.4f}")
 
         # 保存最佳模型
-        if epoch > epochs * 0.4 and test_accs[-1] > best_acc:
-            best_acc = test_accs[-1]
-            torch.save(model.state_dict(), './out/mobilenetv3_multi_best_finetuned.pth')
-            print(f'Save the best model with accuracy: {best_acc:.4f}')
+        if epoch > epochs * 0.4 and test_accs1[-1] + test_accs2[-1] > best_acc:
+            best_acc = test_accs1[-1] + test_accs2[-1]
+            torch.save(model.state_dict(), './out/mobilenetv3_best_finetuned.pth')
 
-    return train_losses, test_losses, train_accs, test_accs
+    return train_losses, test_losses, train_accs1, train_accs2, test_accs1, test_accs2
 
 # 训练模型
-train_losses, test_losses, train_accs, test_accs = train_model(model, criterion1, criterion2, optimizer, train_loader, test_loader, epochs=50)
+train_losses, test_losses, train_accs1, train_accs2, test_accs1, test_accs2 = train_model(model, criterion1, criterion2, optimizer, train_loader, test_loader, epochs=50)
 
 # 保存最后的模型
-torch.save(model.state_dict(), './out/mobilenetv3_multi_last_finetuned.pth')
+torch.save(model.state_dict(), './out/mobilenetv3_last_finetuned.pth')
 
 # 绘制训练和验证损失曲线
 plt.figure(figsize=(12, 4))
@@ -149,8 +150,10 @@ plt.title('Loss Curve')
 
 # 绘制训练和验证准确率曲线
 plt.subplot(1, 2, 2)
-plt.plot(train_accs, label='Train Accuracy')
-plt.plot(test_accs, label='Test Accuracy')
+plt.plot(train_accs1, label='Train Accuracy Head 1')
+plt.plot(train_accs2, label='Train Accuracy Head 2')
+plt.plot(test_accs1, label='Test Accuracy Head 1')
+plt.plot(test_accs2, label='Test Accuracy Head 2')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 plt.legend()

@@ -28,7 +28,7 @@ class MultiHeadMobileNetV3(nn.Module):
         # x = torch.flatten(x, 1)
         out1 = self.head1(x)
         out2 = self.head2(x)
-        return out1, out2
+        return out1, out2, x
 
 
 

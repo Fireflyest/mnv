@@ -9,7 +9,7 @@ import cv2
 # 加载预训练的 MobileNetV3 模型
 weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
 model = models.mobilenet_v3_small(weights=weights)
-model.classifier = nn.Identity()  # 移除分类层，只保留特征提取层
+model.classifier[3] = nn.Identity()  # 移除分类层，只保留特征提取层
 model.eval()
 
 # 定义图像预处理
@@ -24,7 +24,7 @@ def extract_features(image_path):
     image = preprocess(image).unsqueeze(0)  # 添加批次维度
     with torch.no_grad():
         features = model(image)
-    return features.squeeze().numpy()
+    return features.squeeze().numpy() # (576,) 的特征向量
 
 def match_images(image1_path, image2_path):
     features1 = extract_features(image1_path)

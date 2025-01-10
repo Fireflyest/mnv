@@ -75,7 +75,7 @@ grad_cam = vision.GradCAM(model, target_layer)
 # Predict the classes of the selected images and generate CAMs
 with torch.no_grad():
     outputs = model(images)
-    class_outputs, logic_outputs = outputs
+    class_outputs, logic_outputs, _ = outputs
     probabilities, predicted = torch.max(class_outputs, 1)
     logic_predictions = (logic_outputs > 0.5).float()
 
