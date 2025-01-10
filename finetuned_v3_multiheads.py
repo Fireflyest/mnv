@@ -129,6 +129,7 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
         if epoch > epochs * 0.4 and test_accs1[-1] + test_accs2[-1] > best_acc:
             best_acc = test_accs1[-1] + test_accs2[-1]
             torch.save(model.state_dict(), './out/mobilenetv3_best_finetuned.pth')
+            print(f"Model saved with accuracy: {best_acc:.4f}")
 
     return train_losses, test_losses, train_accs1, train_accs2, test_accs1, test_accs2
 

@@ -52,7 +52,7 @@ class GradCAM:
 
     def generate_cam_multi(self, input_image, target_class=None):
         self.model.eval()
-        class_output, _ = self.model(input_image)
+        class_output, _, _ = self.model(input_image)
 
         if target_class is None:
             target_class = class_output.argmax(dim=1).item()
