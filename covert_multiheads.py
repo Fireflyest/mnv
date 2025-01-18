@@ -5,7 +5,16 @@ import mobilenetv3
 
 # 加载预训练的 MobileNetV3 模型
 model = mobilenetv3.MultiHeadMobileNetV3(num_classes=5)
-model.load_state_dict(torch.load('./out/mobilenetv3_multi_best_finetuned.pth', weights_only=True))
+state_dict = torch.load('./out/mobilenetv3_multi_best_finetuned.pth', weights_only=True)
+new_state_dict = {}
+for k, v in state_dict.items():
+    if k.startswith('mobilenet.classifier'):
+        new_key = k.replace('mobilenet.', '')
+        new_state_dict[new_key] = v
+    else:
+        new_state_dict[k] = v
+
+model.load_state_dict(new_state_dict)
 model.eval()
 
 # Export the model to ONNX

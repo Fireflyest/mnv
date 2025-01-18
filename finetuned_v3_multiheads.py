@@ -45,9 +45,12 @@ test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
 # 加载预训练的 MobileNetV3 模型
 model = mobilenetv3.MultiHeadMobileNetV3(num_classes=5)
+print(model)
 
 # 冻结前面的层
 for param in model.mobilenet.parameters():
+    param.requires_grad = False
+for param in model.classifier.parameters():
     param.requires_grad = False
 
 # 只训练最后的多头输出层
