@@ -104,7 +104,7 @@ for i, (img, label, logic_label) in enumerate(selected_images):
     cam = grad_cam.generate_cam_multi(images[i].unsqueeze(0))
 
     # Show CAM on image
-    cam_image = vision.show_cam_on_image(img_np, cam)
+    cam_image = vision.show_cam_on_image(img_np, cam, threshold=0.2)
 
     axes[i].imshow(cam_image)
     axes[i].set_title(f"Predicted: {predicted[i].item()} ({probabilities[i].item():.2f})\nActual: {dataset.classes[label]}, logic: {logic_predictions[i].item()}")

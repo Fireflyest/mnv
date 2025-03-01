@@ -76,9 +76,15 @@ class GradCAM:
         cam = cam / np.max(cam)
         return cam
 
-def show_cam_on_image(img, mask):
-    heatmap = cv2.applyColorMap(np.uint8(255 * mask), cv2.COLORMAP_JET)
+def show_cam_on_image(img, mask, threshold=0.5):
+    heatmap = cv2.applyColorMap(np.uint8(255 * mask), cv2.COLORMAP_HOT)
     heatmap = np.float32(heatmap) / 255
-    cam = heatmap + np.float32(img)
-    cam = cam / np.max(cam)
-    return np.uint8(255 * cam)
+    
+    # 创建一个掩码，只保留热力图中高值部分
+    mask_high_values = mask > threshold
+
+    # 将热力图与原始图像结合，低值部分显示原彩，高值部分显示热力图
+    combined_image = np.float32(img).copy()
+    combined_image[mask_high_values] = combined_image[mask_high_values] * 0.5 + heatmap[mask_high_values] * 0.5
+
+    return np.uint8(255 * combined_image)
