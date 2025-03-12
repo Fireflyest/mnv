@@ -9,7 +9,7 @@ import data
 import mobilenetv3
 
 device = (
-    "cuda"
+    "cuda:0"
     if torch.cuda.is_available()
     else "mps"
     if torch.backends.mps.is_available()
@@ -20,6 +20,7 @@ device = (
 # 设置数据加载器
 transform = transforms.Compose([
     transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(15),
     # transforms.RandomCrop(400),
     transforms.Resize(224),
     transforms.ColorJitter(brightness=.2, hue=.2),
@@ -29,7 +30,7 @@ transform = transforms.Compose([
     transforms.RandomAffine(degrees=(-15, 15)),  # 添加不同倾斜角度
     # data.HorizontalRandomPerspective(distortion_scale=0.6, p=0.6),
     transforms.ToTensor(),
-    transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3)),
+    # transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3)),
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
 ])
 
