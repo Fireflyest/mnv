@@ -6,10 +6,10 @@ from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 
 import data
-import mobilenetv3
+import efficientnet
 
 device = (
-    "cuda:0"
+    "cuda:1"
     if torch.cuda.is_available()
     else "mps"
     if torch.backends.mps.is_available()
@@ -30,7 +30,7 @@ transform = transforms.Compose([
     transforms.RandomAffine(degrees=(-15, 15)),  # 添加不同倾斜角度
     # data.HorizontalRandomPerspective(distortion_scale=0.6, p=0.6),
     transforms.ToTensor(),
-    transforms.RandomErasing(p=0.5, scale=(0.02, 0.15), ratio=(0.3, 3.3)),
+    transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3)),
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
 ])
 
@@ -44,12 +44,12 @@ train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-# 加载预训练的 MobileNetV3 模型
-model = mobilenetv3.MultiHeadMobileNetV3(num_classes=5)
+# 加载预训练的 efficientnet 模型
+model = efficientnet.MultiHeadEfficientNet(num_classes=5)
 print(model)
 
 # 冻结前面的层
-for param in model.mobilenet.parameters():
+for param in model.efficientnet.parameters():
     param.requires_grad = False
 for param in model.classifier.parameters():
     param.requires_grad = False
@@ -132,7 +132,7 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
         # 保存最佳模型
         if epoch > epochs * 0.4 and test_accs1[-1] + test_accs2[-1] > best_acc:
             best_acc = test_accs1[-1] + test_accs2[-1]
-            torch.save(model.state_dict(), './out/mobilenetv3_best_finetuned.pth')
+            torch.save(model.state_dict(), './out/efficientnet_best_finetuned.pth')
             print(f"Model saved with accuracy: {best_acc:.4f}")
 
     return train_losses, test_losses, train_accs1, train_accs2, test_accs1, test_accs2
@@ -141,7 +141,7 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
 train_losses, test_losses, train_accs1, train_accs2, test_accs1, test_accs2 = train_model(model, criterion1, criterion2, optimizer, train_loader, test_loader, epochs=50)
 
 # 保存最后的模型
-torch.save(model.state_dict(), './out/mobilenetv3_last_finetuned.pth')
+torch.save(model.state_dict(), './out/efficientnet_last_finetuned.pth')
 
 # 绘制训练和验证损失曲线
 plt.figure(figsize=(12, 4))
@@ -164,4 +164,4 @@ plt.ylabel('Accuracy')
 plt.legend()
 plt.title('Accuracy Curve')
 
-plt.savefig('./out/mobilenetv3_training_curves.png')
+plt.savefig('./out/efficientnet_training_curves.png')

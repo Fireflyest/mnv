@@ -8,7 +8,7 @@ import random
 import numpy as np
 import cv2
 
-import mobilenetv3
+import efficientnet
 import data
 import vision
 
@@ -44,22 +44,13 @@ selected_images = [dataset[i] for i in random_indices]
 images = torch.stack([img for img, _, _ in selected_images])
 images = images.to(device)
 
-
-
-# 加载模型
-
-# Load the model
-# model = mobilenetv4.MobileNet(len(dataset.classes)).to(device)
-# model.load_state_dict(torch.load('./out/mobilenetv4.pth', weights_only=True))
-# model.eval()
-
-# 加载预训练的 MobileNetV3 模型
-model = mobilenetv3.MultiHeadMobileNetV3(num_classes=5)
-state_dict = torch.load('./out/mobilenetv3_multi_best_finetuned.pth', weights_only=True)
+# 加载预训练的模型
+model = efficientnet.MultiHeadEfficientNet(num_classes=5)
+state_dict = torch.load('./out/efficientnet_best_finetuned.pth', weights_only=True)
 new_state_dict = {}
 for k, v in state_dict.items():
-    if k.startswith('mobilenet.classifier'):
-        new_key = k.replace('mobilenet.', '')
+    if k.startswith('efficientnet.classifier'):
+        new_key = k.replace('efficientnet.', '')
         new_state_dict[new_key] = v
     else:
         new_state_dict[k] = v
@@ -72,9 +63,7 @@ model.to(device)
 # 选择要显示的层
 
 # Select the target layer for Grad-CAM
-# target_layer = model.layer4[-1]
-# target_layer = model.features[-1]  # MobileNetV3 的最后一个卷积层
-target_layer = model.mobilenet.features[-1]  # MobileNetV3 的最后一个卷积层
+target_layer = model.efficientnet.features[-1]  # 最后一个卷积层
 
 
 # Initialize Grad-CAM
@@ -110,5 +99,5 @@ for i, (img, label, logic_label) in enumerate(selected_images):
     axes[i].set_title(f"Predicted: {predicted[i].item()} ({probabilities[i].item():.2f})\nActual: {dataset.classes[label]}, logic: {logic_predictions[i].item()}")
     axes[i].axis("off")
 
-plt.savefig('./out/val_cam_multiheads.png')
+plt.savefig('./out/val_e_cam_multiheads.png')
 plt.show()

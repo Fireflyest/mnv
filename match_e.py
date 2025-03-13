@@ -7,8 +7,8 @@ import numpy as np
 import cv2
 
 # 加载预训练的 MobileNetV3 模型
-weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
-model = models.mobilenet_v3_small(weights=weights)
+weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1
+model = models.efficientnet_b0(weights=weights)
 model.classifier = nn.Identity()  # 移除分类层，只保留特征提取层
 model.eval()
 
@@ -76,5 +76,5 @@ image_paths = [
     './temp/ice.jpg',
     './temp/waterpolo.jpg'
 ]
-output_path = './out/match_v3.jpg'
+output_path = './out/match_e.jpg'
 save_match_result(image1_path, image_paths, output_path)
