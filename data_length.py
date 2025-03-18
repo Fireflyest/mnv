@@ -9,9 +9,28 @@ from PIL import Image
 import zlib
 import time
 
+# 最后转向量
+# Image to Base64 size: 60888 bytes
+# Features size: 6760 bytes
+# Compression time: 0.0 seconds
+# Compressed Base64 size: 3892 bytes
+# Decompression time: 0.000000 seconds
+# Decompressed size: 6760 bytes
+
+# 浅层转向量
+# Image to Base64 size: 60888 bytes
+# Features size: 183 bytes
+# Compression time: 0.0009970664978027344 seconds
+# Compressed Base64 size: 148 bytes
+# Decompression time: 0.000000 seconds
+# Decompressed size: 183 bytes
+
+
+
 # 加载预训练的 MobileNetV3 模型
 weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
 model = models.mobilenet_v3_small(weights=weights)
+# model.avgpool = nn.Identity()  # 移除平均池化层
 model.classifier = nn.Identity()  # 移除分类层，只保留特征提取层
 model.eval()
 
@@ -22,7 +41,7 @@ preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-image = Image.open('./temp/1.jpg').convert('RGB')
+image = Image.open('./temp/1.png').convert('RGB')
 
 # 将图像保存到字节流
 buffered = io.BytesIO()
@@ -43,7 +62,8 @@ print(f"Image to Base64 size: {base64_size} bytes")
 
 image = preprocess(image).unsqueeze(0)  # 添加批次维度
 with torch.no_grad():
-    features = model(image)
+    features = torch.flatten(model.avgpool(model.features[:2](image)), 1)
+    # features = model(image)
 features = features.squeeze().numpy() # (576,) 的特征向量
 
 # features转为文本，不要省略
