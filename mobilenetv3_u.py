@@ -37,8 +37,17 @@ class MultiHeadMobileNetV3(nn.Module):
         x7 = self.classifier(x6)
         out1 = self.head1(x7)
         out2 = self.head2(x7)
-        out3 = torch.flatten(self.avgpool(x1), 1)
-        return out1, out2, out3
+
+        pool = nn.AdaptiveAvgPool2d((1, 1))
+        f1 = torch.flatten(pool(x1), 1)      # [B, 16]
+        f2 = torch.flatten(pool(x2), 1)      # [B, 24]
+        f3 = torch.flatten(pool(x3), 1)      # [B, 40]
+        f4 = torch.flatten(pool(x4), 1)      # [B, 80]
+        f5 = torch.flatten(pool(x5), 1)      # [B, 576]
+        
+        # Concatenate all features
+        features = torch.cat([f1, f2, f3, f4, f5], dim=1)  # [B, 16+24+40+80+576=736]
+        return out1, out2, features
 
 
 # 输出网络结构

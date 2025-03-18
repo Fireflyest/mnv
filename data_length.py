@@ -25,7 +25,13 @@ import time
 # Decompression time: 0.000000 seconds
 # Decompressed size: 183 bytes
 
-
+# 所有层特征拼接
+# Image to Base64 size: 60888 bytes
+# Features size: 8782 bytes
+# Compression time: 0.0 seconds
+# Compressed Base64 size: 5100 bytes
+# Decompression time: 0.000000 seconds
+# Decompressed size: 8782 bytes
 
 # 加载预训练的 MobileNetV3 模型
 weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
@@ -62,7 +68,24 @@ print(f"Image to Base64 size: {base64_size} bytes")
 
 image = preprocess(image).unsqueeze(0)  # 添加批次维度
 with torch.no_grad():
-    features = torch.flatten(model.avgpool(model.features[:2](image)), 1)
+    x1 = model.features[:2](image)       # [B, 16, H/2, W/2]
+    x2 = model.features[2:4](x1)         # [B, 24, H/4, W/4]
+    x3 = model.features[4:7](x2)         # [B, 40, H/8, W/8]
+    x4 = model.features[7:10](x3)        # [B, 80, H/16, W/16]
+    x5 = model.features[10:](x4)         # [B, 576, H/32, W/32]
+    
+    # Apply avgpool to each feature map
+    pool = nn.AdaptiveAvgPool2d((1, 1))
+    f1 = torch.flatten(pool(x1), 1)      # [B, 16]
+    f2 = torch.flatten(pool(x2), 1)      # [B, 24]
+    f3 = torch.flatten(pool(x3), 1)      # [B, 40]
+    f4 = torch.flatten(pool(x4), 1)      # [B, 80]
+    f5 = torch.flatten(pool(x5), 1)      # [B, 576]
+    
+    # Concatenate all features
+    features = torch.cat([f1, f2, f3, f4, f5], dim=1)  # [B, 16+24+40+80+576=736]
+
+    # features = torch.flatten(model.avgpool(model.features[:2](image)), 1)
     # features = model(image)
 features = features.squeeze().numpy() # (576,) 的特征向量
 
