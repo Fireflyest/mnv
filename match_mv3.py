@@ -23,8 +23,27 @@ def extract_features(image_path):
     image = Image.open(image_path).convert('RGB')
     image = preprocess(image).unsqueeze(0)  # 添加批次维度
     with torch.no_grad():
-        features = model(image)
-    return features.squeeze().numpy() # (576,) 的特征向量
+        x1 = model.features[:2](image)       # [B, 16, H/2, W/2]
+        x2 = model.features[2:4](x1)         # [B, 24, H/4, W/4]
+        x3 = model.features[4:7](x2)         # [B, 40, H/8, W/8]
+        x4 = model.features[7:10](x3)        # [B, 80, H/16, W/16]
+        x5 = model.features[10:](x4)         # [B, 576, H/32, W/32]
+        
+        spatial_attention = torch.mean(x5, dim=1, keepdim=True)  # [B, 1, H/32, W/32]
+        spatial_attention = torch.sigmoid(spatial_attention)
+        x5 = x5 * (1 - spatial_attention)  # 逐元素相乘，广播机制会自动扩展
+        
+        # Apply avgpool to each feature map
+        pool = nn.AdaptiveAvgPool2d((1, 1))
+        f1 = torch.flatten(pool(x1), 1)      # [B, 16]
+        f2 = torch.flatten(pool(x2), 1)      # [B, 24]
+        f3 = torch.flatten(pool(x3), 1)      # [B, 40]
+        f4 = torch.flatten(pool(x4), 1)      # [B, 80]
+        f5 = torch.flatten(pool(x5), 1)  # [B, 576] - 使用注意力加权后的特征
+        
+        # Concatenate all features
+        features = torch.cat([f1, f2, f3, f4, f5], dim=1)  # [B, 16+24+40+80+576=736]
+        return features.squeeze().numpy() # (576,) 的特征向量
 
 def match_images(image1_path, image2_path):
     features1 = extract_features(image1_path)
@@ -67,14 +86,15 @@ def save_match_result(image1_path, image_paths, output_path):
     # 保存图片
     cv2.imwrite(output_path, final_image)
 
-image1_path = './temp/image.jpg'
+image1_path = './temp/1.jpg'
 image_paths = [
-    './temp/1.jpg',
+    # './temp/1.jpg',
     './temp/2.jpg',
     './temp/3.jpg',
     './temp/4.jpg',
-    './temp/ice.jpg',
-    './temp/waterpolo.jpg'
+    './temp/5.jpg',
+    # './temp/ice.jpg',
+    # './temp/waterpolo.jpg'
 ]
 output_path = './out/match_mv3.jpg'
 save_match_result(image1_path, image_paths, output_path)

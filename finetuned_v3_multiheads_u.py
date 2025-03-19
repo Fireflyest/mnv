@@ -22,7 +22,7 @@ transform = transforms.Compose([
     transforms.RandomHorizontalFlip(),
     transforms.RandomRotation(15),
     # transforms.RandomCrop(400),
-    transforms.Resize(224),
+    transforms.Resize((224, 224)),
     transforms.ColorJitter(brightness=.2, hue=.2),
     transforms.GaussianBlur(5, sigma=(0.1, 2.0)),
     # transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
