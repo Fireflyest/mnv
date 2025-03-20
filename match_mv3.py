@@ -48,9 +48,12 @@ def extract_features(image_path):
 def match_images(image1_path, image2_path):
     features1 = extract_features(image1_path)
     features2 = extract_features(image2_path)
-    # 计算余弦相似度
     similarity = np.dot(features1, features2) / (np.linalg.norm(features1) * np.linalg.norm(features2))
     return similarity
+    # similarity = np.linalg.norm(features1 - features2)
+    # similarity = 1 / (1 + similarity)
+    # return similarity
+
 
 def save_match_result(image1_path, image_paths, output_path):
     # 读取原图
