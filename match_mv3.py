@@ -6,10 +6,20 @@ from PIL import Image
 import numpy as np
 import cv2
 
+import mobilenetv3_u
+
 # 加载预训练的 MobileNetV3 模型
-weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
-model = models.mobilenet_v3_small(weights=weights)
-model.classifier = nn.Identity()  # 移除分类层，只保留特征提取层
+model = mobilenetv3_u.MultiHeadMobileNetV3(num_classes=5)
+state_dict = torch.load('./out/mobilenetv3_u_best_finetuned.pth', weights_only=True)
+new_state_dict = {}
+for k, v in state_dict.items():
+    if k.startswith('mobilenet.classifier'):
+        new_key = k.replace('mobilenet.', '')
+        new_state_dict[new_key] = v
+    else:
+        new_state_dict[k] = v
+
+model.load_state_dict(new_state_dict)
 model.eval()
 
 # 定义图像预处理
@@ -23,26 +33,7 @@ def extract_features(image_path):
     image = Image.open(image_path).convert('RGB')
     image = preprocess(image).unsqueeze(0)  # 添加批次维度
     with torch.no_grad():
-        x1 = model.features[:2](image)       # [B, 16, H/2, W/2]
-        x2 = model.features[2:4](x1)         # [B, 24, H/4, W/4]
-        x3 = model.features[4:7](x2)         # [B, 40, H/8, W/8]
-        x4 = model.features[7:10](x3)        # [B, 80, H/16, W/16]
-        x5 = model.features[10:](x4)         # [B, 576, H/32, W/32]
-        
-        spatial_attention = torch.mean(x5, dim=1, keepdim=True)  # [B, 1, H/32, W/32]
-        spatial_attention = torch.sigmoid(spatial_attention)
-        x5 = x5 * (1 - spatial_attention)  # 逐元素相乘，广播机制会自动扩展
-        
-        # Apply avgpool to each feature map
-        pool = nn.AdaptiveAvgPool2d((1, 1))
-        f1 = torch.flatten(pool(x1), 1)      # [B, 16]
-        f2 = torch.flatten(pool(x2), 1)      # [B, 24]
-        f3 = torch.flatten(pool(x3), 1)      # [B, 40]
-        f4 = torch.flatten(pool(x4), 1)      # [B, 80]
-        f5 = torch.flatten(pool(x5), 1)  # [B, 576] - 使用注意力加权后的特征
-        
-        # Concatenate all features
-        features = torch.cat([f1, f2, f3, f4, f5], dim=1)  # [B, 16+24+40+80+576=736]
+        _, _, features = model(image)
         return features.squeeze().numpy() # (576,) 的特征向量
 
 def match_images(image1_path, image2_path):
@@ -89,15 +80,15 @@ def save_match_result(image1_path, image_paths, output_path):
     # 保存图片
     cv2.imwrite(output_path, final_image)
 
-image1_path = './temp/1.jpg'
+image1_path = './temp/chair1.png'
 image_paths = [
-    # './temp/1.jpg',
-    './temp/2.jpg',
-    './temp/3.jpg',
-    './temp/4.jpg',
-    './temp/5.jpg',
-    # './temp/ice.jpg',
-    # './temp/waterpolo.jpg'
+    './temp/chair1.png',
+    './temp/chair2.png',
+    './temp/chair_offset.png',
+    './temp/chair_big.png',
+    './temp/chair_small.png'
 ]
+
+
 output_path = './out/match_mv3.jpg'
 save_match_result(image1_path, image_paths, output_path)
