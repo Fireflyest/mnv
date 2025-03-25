@@ -3,6 +3,7 @@ import torch.nn as nn
 import torchvision.models as models
 from torchvision.models.mobilenetv3 import mobilenet_v3_small, mobilenet_v3_large
 import torch.nn.functional as F
+import os
 
 class BaseMatchingNetwork(nn.Module):
     """
@@ -17,209 +18,6 @@ class BaseMatchingNetwork(nn.Module):
         前向传播方法，需要在子类中实现
         """
         raise NotImplementedError("子类必须实现forward方法")
-
-class MatchingMLP(BaseMatchingNetwork):
-    """
-    用于匹配两个特征向量的MLP网络
-    """
-    def __init__(self, feature_dim, hidden_dims=[512, 256, 128]):
-        super(MatchingMLP, self).__init__(feature_dim)
-        
-        # 输入维度是两个特征向量的拼接
-        input_dim = feature_dim * 2
-        
-        # 构建MLP层
-        layers = []
-        prev_dim = input_dim
-        
-        for hidden_dim in hidden_dims:
-            layers.append(nn.Linear(prev_dim, hidden_dim))
-            layers.append(nn.LayerNorm(hidden_dim))
-            layers.append(nn.ReLU(inplace=True))
-            layers.append(nn.Dropout(0.2))
-            prev_dim = hidden_dim
-        
-        # 最终的分类层
-        layers.append(nn.Linear(prev_dim, 1))
-        
-        self.mlp = nn.Sequential(*layers)
-        
-    def forward(self, feat1, feat2):
-        """
-        前向传播，匹配两个特征向量
-        
-        参数:
-            feat1: 第一个特征向量, 形状为 [batch_size, feature_dim]
-            feat2: 第二个特征向量, 形状为 [batch_size, feature_dim]
-            
-        返回:
-            匹配得分, 形状为 [batch_size, 1]
-        """
-        # 拼接特征向量
-        combined = torch.cat([feat1, feat2], dim=1)
-        
-        # 通过MLP进行匹配
-        logits = self.mlp(combined)
-        
-        return torch.sigmoid(logits)
-
-class CosineSimilarityMatcher(BaseMatchingNetwork):
-    """
-    基于余弦相似度的特征匹配网络
-    """
-    def __init__(self, feature_dim):
-        super(CosineSimilarityMatcher, self).__init__(feature_dim)
-        self.projection = nn.Sequential(
-            nn.Linear(feature_dim, 256),
-            nn.ReLU(inplace=True),
-            nn.Linear(256, 256)
-        )
-        
-    def forward(self, feat1, feat2):
-        """
-        使用余弦相似度计算两个特征向量的匹配得分
-        """
-        # 投影特征到同一空间
-        feat1_proj = self.projection(feat1)
-        feat2_proj = self.projection(feat2)
-        
-        # 标准化特征向量
-        feat1_norm = F.normalize(feat1_proj, p=2, dim=1)
-        feat2_norm = F.normalize(feat2_proj, p=2, dim=1)
-        
-        # 计算余弦相似度
-        cos_sim = torch.sum(feat1_norm * feat2_norm, dim=1, keepdim=True)
-        
-        # 将相似度映射到[0,1]范围
-        return (cos_sim + 1) / 2
-
-class EuclideanMatcher(BaseMatchingNetwork):
-    """
-    基于欧氏距离的特征匹配网络
-    """
-    def __init__(self, feature_dim):
-        super(EuclideanMatcher, self).__init__(feature_dim)
-        self.projection = nn.Sequential(
-            nn.Linear(feature_dim, 256),
-            nn.ReLU(inplace=True),
-            nn.Linear(256, 128)
-        )
-        
-    def forward(self, feat1, feat2):
-        """
-        使用欧氏距离计算两个特征向量的匹配得分
-        """
-        # 投影特征到同一空间
-        feat1_proj = self.projection(feat1)
-        feat2_proj = self.projection(feat2)
-        
-        # 计算欧氏距离
-        distance = torch.sqrt(torch.sum((feat1_proj - feat2_proj)**2, dim=1, keepdim=True) + 1e-8)
-        
-        # 将距离转换为相似度分数（距离越小，相似度越高）
-        sim_score = torch.exp(-distance)
-        
-        return sim_score
-
-class CrossAttentionMatcher(BaseMatchingNetwork):
-    """
-    基于交叉注意力机制的特征匹配网络
-    """
-    def __init__(self, feature_dim, num_heads=4):
-        super(CrossAttentionMatcher, self).__init__(feature_dim)
-        self.feature_dim = feature_dim
-        self.num_heads = num_heads
-        
-        # Make sure embed_dim is divisible by num_heads
-        self.embed_dim = num_heads * (256 // num_heads)
-        
-        # 特征投影层
-        self.projection = nn.Linear(feature_dim, self.embed_dim)
-        
-        # 交叉注意力层
-        self.cross_attention = nn.MultiheadAttention(
-            embed_dim=self.embed_dim, 
-            num_heads=num_heads
-        )
-        
-        # 最终分类层
-        self.classifier = nn.Sequential(
-            nn.Linear(self.embed_dim * 2, 128),
-            nn.ReLU(inplace=True),
-            nn.Linear(128, 1),
-            nn.Sigmoid()
-        )
-        
-    def forward(self, feat1, feat2):
-        """
-        使用交叉注意力机制计算两个特征向量的匹配得分
-        """
-        # 投影特征
-        feat1_proj = self.projection(feat1).unsqueeze(1)  # [B, 1, 256]
-        feat2_proj = self.projection(feat2).unsqueeze(1)  # [B, 1, 256]
-        
-        # 应用交叉注意力
-        attn_output1, _ = self.cross_attention(feat1_proj, feat2_proj, feat2_proj)
-        attn_output2, _ = self.cross_attention(feat2_proj, feat1_proj, feat1_proj)
-        
-        # 拼接注意力特征
-        combined = torch.cat([
-            attn_output1.squeeze(1), 
-            attn_output2.squeeze(1)
-        ], dim=1)
-        
-        # 计算匹配得分
-        return self.classifier(combined)
-
-class CombinedMLPCosineMatcher(BaseMatchingNetwork):
-    """
-    结合MLP和余弦相似度的特征匹配网络
-    """
-    def __init__(self, feature_dim, hidden_dims=[256, 128]):
-        super(CombinedMLPCosineMatcher, self).__init__(feature_dim)
-        
-        # MLP部分
-        self.projection = nn.Sequential(
-            nn.Linear(feature_dim, hidden_dims[0]),
-            nn.LayerNorm(hidden_dims[0]),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
-            nn.Linear(hidden_dims[0], hidden_dims[1])
-        )
-        
-        # 结合部分 - 将余弦相似度和原始特征一起送入MLP
-        combined_dim = 1 + feature_dim * 2  # 余弦相似度(1) + 原始特征拼接(feature_dim*2)
-        self.classifier = nn.Sequential(
-            nn.Linear(combined_dim, 128),
-            nn.LayerNorm(128),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
-            nn.Linear(128, 64),
-            nn.ReLU(inplace=True),
-            nn.Linear(64, 1),
-            nn.Sigmoid()
-        )
-        
-    def forward(self, feat1, feat2):
-        """
-        结合余弦相似度和MLP进行特征匹配
-        """
-        # 投影特征
-        feat1_proj = self.projection(feat1)
-        feat2_proj = self.projection(feat2)
-        
-        # 标准化特征向量以计算余弦相似度
-        feat1_norm = F.normalize(feat1_proj, p=2, dim=1)
-        feat2_norm = F.normalize(feat2_proj, p=2, dim=1)
-        
-        # 计算余弦相似度
-        cos_sim = torch.sum(feat1_norm * feat2_norm, dim=1, keepdim=True)
-        
-        # 拼接余弦相似度和原始特征
-        combined = torch.cat([cos_sim, feat1, feat2], dim=1)
-        
-        # 最终分类
-        return self.classifier(combined)
 
 class ContrastiveMatcher(BaseMatchingNetwork):
     """
@@ -305,8 +103,7 @@ class ContrastiveMatcher(BaseMatchingNetwork):
         if pos_mask is None:
             pos_mask = torch.eye(batch_size, device=z1.device)
             
-        # 计算InfoNCE损失
-        # 对于每个锚点，正样本对的对数似然
+        # 计算InfoNCE损失，对于每个锚点，正样本对的对数似然
         exp_sim = torch.exp(similarity_matrix)
         
         # 对于每行(锚点)，计算所有可能匹配的分母之和
@@ -316,6 +113,37 @@ class ContrastiveMatcher(BaseMatchingNetwork):
         loss = (log_prob * pos_mask).sum() / pos_mask.sum()
         
         return loss
+
+    @staticmethod
+    def load_from_path(load_path, feature_dim=752, projection_dim=128, temperature=0.07):
+        """
+        直接从保存路径加载ContrastiveMatcher模型
+        
+        参数:
+            load_path: 加载路径
+            feature_dim: 特征维度
+            projection_dim: 投影维度
+            temperature: 温度参数
+        
+        返回:
+            加载好的ContrastiveMatcher模型
+        """
+        # 检查文件是否存在
+        if not os.path.exists(load_path):
+            raise FileNotFoundError(f"Model file not found at {load_path}")
+        
+        # 创建新的ContrastiveMatcher实例
+        matcher = ContrastiveMatcher(feature_dim=feature_dim, 
+                                    projection_dim=projection_dim, 
+                                    temperature=temperature)
+        
+        # 加载状态字典
+        matcher.load_state_dict(torch.load(load_path))
+        # 设置为评估模式
+        matcher.eval()
+        print(f"ContrastiveMatcher model loaded from {load_path}")
+        
+        return matcher
 
 
 class InfoNCELoss(nn.Module):
@@ -374,7 +202,7 @@ class ImageMatchingModel(nn.Module):
     """
     图像匹配模型，由特征提取器和匹配网络组成
     """
-    def __init__(self, pretrained=True, backbone='small', matcher_type='mlp', num_heads=3, temperature=0.07):
+    def __init__(self, pretrained=True, backbone='small', temperature=0.07):
         super(ImageMatchingModel, self).__init__()
         
         weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
@@ -383,24 +211,9 @@ class ImageMatchingModel(nn.Module):
         
         feature_dim = 752  # 由MobileNetV3-Small提取的特征维度
         
-        # 根据指定的匹配器类型创建匹配网络
-        if matcher_type == 'mlp':
-            self.matching_network = MatchingMLP(feature_dim=feature_dim)
-        elif matcher_type == 'cosine':
-            self.matching_network = CosineSimilarityMatcher(feature_dim=feature_dim)
-        elif matcher_type == 'euclidean':
-            self.matching_network = EuclideanMatcher(feature_dim=feature_dim)
-        elif matcher_type == 'attention':
-            self.matching_network = CrossAttentionMatcher(feature_dim=feature_dim, num_heads=num_heads)
-        elif matcher_type == 'combined':
-            self.matching_network = CombinedMLPCosineMatcher(feature_dim=feature_dim)
-        elif matcher_type == 'contrastive':
-            self.matching_network = ContrastiveMatcher(feature_dim=feature_dim, temperature=temperature)
-            self.info_nce_loss = InfoNCELoss(temperature=temperature)
-        else:
-            raise ValueError(f"不支持的匹配器类型: {matcher_type}")
-        
-        self.matcher_type = matcher_type
+        # 只使用ContrastiveMatcher
+        self.matching_network = ContrastiveMatcher(feature_dim=feature_dim, temperature=temperature)
+        self.info_nce_loss = InfoNCELoss(temperature=temperature)
     
     def forward(self, img1, img2):
         """
@@ -455,7 +268,7 @@ class ImageMatchingModel(nn.Module):
         返回:
             total_loss: 总损失
             bce_loss: 二元交叉熵损失
-            contrast_loss: 对比学习损失
+            contrast_loss: 对比损失
         """
         # 提取特征
         feat1 = self._extract_features(img1_batch)
@@ -467,47 +280,83 @@ class ImageMatchingModel(nn.Module):
         # 二元交叉熵损失
         bce_loss = F.binary_cross_entropy(scores, labels.float())
         
-        # 如果是对比学习方法，计算额外的对比损失
-        if self.matcher_type == 'contrastive':
-            # 创建正样本掩码 - 相同标签的样本是正样本对
-            labels_matrix = (labels.view(-1, 1) == labels.view(1, -1)).float()
+        # 创建正样本掩码 - 相同标签的样本是正样本对
+        labels_matrix = (labels.view(-1, 1) == labels.view(1, -1)).float()
+        
+        # 使用InfoNCE损失
+        contrast_loss = self.matching_network.compute_infoNCE_loss(feat1, feat2, pos_mask=labels_matrix)
             
-            # 使用InfoNCE损失
-            if isinstance(self.matching_network, ContrastiveMatcher):
-                contrast_loss = self.matching_network.compute_infoNCE_loss(feat1, feat2, pos_mask=labels_matrix)
-            else:
-                contrast_loss = self.info_nce_loss(feat1, feat2, labels)
-                
-            # 组合损失
-            total_loss = (1 - alpha) * bce_loss + alpha * contrast_loss
+        # 组合损失
+        total_loss = (1 - alpha) * bce_loss + alpha * contrast_loss
             
-            return total_loss, bce_loss, contrast_loss
-        else:
-            # 对于非对比方法，只返回BCE损失
-            return bce_loss, bce_loss, torch.tensor(0.0, device=bce_loss.device)
+        return total_loss, bce_loss, contrast_loss
+
+    def save_matcher(self, save_path):
+        """
+        只保存ContrastiveMatcher模型
+        
+        参数:
+            save_path: 保存路径
+        """
+        # 确保目录存在
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        
+        # 只保存匹配网络的状态字典
+        torch.save(self.matching_network.state_dict(), save_path)
+        print(f"ContrastiveMatcher model saved to {save_path}")
+    
+    def load_matcher(self, load_path):
+        """
+        只加载ContrastiveMatcher模型
+        
+        参数:
+            load_path: 加载路径
+        """
+        # 检查文件是否存在
+        if not os.path.exists(load_path):
+            raise FileNotFoundError(f"Model file not found at {load_path}")
+            
+        # 加载匹配网络的状态字典
+        self.matching_network.load_state_dict(torch.load(load_path))
+        print(f"ContrastiveMatcher model loaded from {load_path}")
 
 
 # 测试模型
 if __name__ == "__main__":
-    # 测试不同匹配方法
-    matcher_types = ['mlp', 'cosine', 'euclidean', 'attention', 'combined', 'contrastive']
+    # 测试ContrastiveMatcher
     batch_size = 4
     dummy_input1 = torch.randn(batch_size, 3, 224, 224)
     dummy_input2 = torch.randn(batch_size, 3, 224, 224)
     dummy_labels = torch.randint(0, 2, (batch_size,))  # 随机二进制标签
     
-    for matcher_type in matcher_types:
-        print(f"\n测试 {matcher_type} 匹配方法:")
-        model = ImageMatchingModel(pretrained=True, backbone='small', matcher_type=matcher_type)
+    model = ImageMatchingModel(pretrained=True, backbone='small')
+    
+    # 测试前向传播
+    with torch.no_grad():
+        output = model(dummy_input1, dummy_input2)
         
-        # 测试前向传播
-        with torch.no_grad():
-            output = model(dummy_input1, dummy_input2)
-            
-        print(f"输出形状: {output.shape}")
-        print(f"输出值: {output}")
-        
-        # 测试损失计算
-        if matcher_type == 'contrastive':
-            total_loss, bce_loss, contrast_loss = model.compute_loss(dummy_input1, dummy_input2, dummy_labels)
-            print(f"总损失: {total_loss.item():.4f}, BCE损失: {bce_loss.item():.4f}, 对比损失: {contrast_loss.item():.4f}")
+    print(f"输出形状: {output.shape}")
+    print(f"输出值: {output}")
+    
+    # 测试损失计算
+    total_loss, bce_loss, contrast_loss = model.compute_loss(dummy_input1, dummy_input2, dummy_labels)
+    print(f"总损失: {total_loss.item():.4f}, BCE损失: {bce_loss.item():.4f}, 对比损失: {contrast_loss.item():.4f}")
+    
+    save_path = "./models/contrastive_matcher.pth"
+    model.save_matcher(save_path)
+    
+    # 先保存模型
+    if not os.path.exists(save_path):
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        model.save_matcher(save_path)
+    
+    # 直接加载ContrastiveMatcher模型
+    matcher = ContrastiveMatcher.load_from_path(save_path)
+    
+    # 测试加载的模型
+    dummy_feat1 = torch.randn(batch_size, 752)
+    dummy_feat2 = torch.randn(batch_size, 752)
+    with torch.no_grad():
+        scores = matcher(dummy_feat1, dummy_feat2)
+    print(f"直接加载的ContrastiveMatcher输出形状: {scores.shape}")
+    print(f"直接加载的ContrastiveMatcher输出值: {scores}")

@@ -12,7 +12,6 @@ import os
 
 # 解析命令行参数
 parser = argparse.ArgumentParser(description='训练图像匹配模型')
-parser.add_argument('--matcher', type=str, default='contrastive', choices=['mlp', 'cosine', 'euclidean', 'attention', 'combined', 'contrastive'], help='匹配网络类型')
 parser.add_argument('--batch_size', type=int, default=32, help='批次大小')
 parser.add_argument('--epochs', type=int, default=20, help='训练轮次')
 parser.add_argument('--lr', type=float, default=0.001, help='学习率')
@@ -62,9 +61,8 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
     # 创建模型
-    model = ImageMatchingModel(pretrained=True, backbone='small', matcher_type=args.matcher, temperature=args.temperature)
+    model = ImageMatchingModel(pretrained=True, backbone='small', temperature=args.temperature)
     
-    # 初始化非预训练部分的权重
     # 仅对匹配器部分进行初始化，因为backbone是预训练模型
     if hasattr(model, 'matcher'):
         model.matcher.apply(init_weights)
@@ -80,7 +78,7 @@ def main():
     model = model.to(device)
 
     # 训练循环
-    print(f"使用 {args.matcher} 匹配器开始训练...")
+    print("开始训练...")
     print(f"设备: {device}")
 
     best_val_loss = float('inf')
@@ -103,27 +101,14 @@ def main():
         # 保存最佳模型 (基于验证损失)
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            checkpoint_path = os.path.join(args.output_dir, f"{args.matcher}_best.pth")
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'train_loss': train_loss,
-                'val_loss': val_loss,
-                'val_acc': val_acc,
-            }, checkpoint_path)
+            checkpoint_path = os.path.join(args.output_dir, "matcher_best.pth")
+            model.save_matcher(checkpoint_path)
             print(f"模型保存到 {checkpoint_path} (验证损失: {val_loss:.4f})")
         
         # 每个轮次保存一次检查点
-        checkpoint_path = os.path.join(args.output_dir, f"{args.matcher}_epoch_{epoch+1}.pth")
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'train_loss': train_loss,
-            'val_loss': val_loss,
-            'val_acc': val_acc,
-        }, checkpoint_path)
+        checkpoint_path = os.path.join(args.output_dir, f"matcher_epoch_{epoch+1}.pth")
+        model.save_matcher(checkpoint_path)
+
 
 # 训练函数
 def train_epoch(model, loader, optimizer, alpha):
@@ -141,18 +126,12 @@ def train_epoch(model, loader, optimizer, alpha):
         
         optimizer.zero_grad()
         
-        # 计算损失
-        if args.matcher == 'contrastive':
-            total_loss, bce_loss, contrast_loss = model.compute_loss(img1, img2, labels, alpha)
-            running_contrast_loss += contrast_loss.item()
-            
-            # 计算前向传播结果（不重复计算）
-            with torch.no_grad():
-                scores = model(img1, img2).squeeze()
-        else:
+        total_loss, bce_loss, contrast_loss = model.compute_loss(img1, img2, labels, alpha)
+        running_contrast_loss += contrast_loss.item()
+        
+        # 计算前向传播结果（不重复计算）
+        with torch.no_grad():
             scores = model(img1, img2).squeeze()
-            total_loss = nn.BCELoss()(scores, labels)
-            bce_loss = total_loss
         
         # 反向传播和优化
         total_loss.backward()
@@ -177,7 +156,7 @@ def train_epoch(model, loader, optimizer, alpha):
     # 返回平均损失和准确率
     avg_loss = running_loss / len(loader)
     avg_bce = running_bce_loss / len(loader)
-    avg_contrast = running_contrast_loss / len(loader) if args.matcher == 'contrastive' else 0
+    avg_contrast = running_contrast_loss / len(loader)
     accuracy = 100 * correct / total
     
     return avg_loss, avg_bce, avg_contrast, accuracy
@@ -203,12 +182,8 @@ def validate(model, loader, alpha):
             # 计算损失和前向传播结果
             scores = model(img1, img2).squeeze()
             
-            if args.matcher == 'contrastive':
-                total_loss, bce_loss, contrast_loss = model.compute_loss(img1, img2, labels, alpha)
-                running_contrast_loss += contrast_loss.item()
-            else:
-                total_loss = nn.BCELoss()(scores, labels)
-                bce_loss = total_loss
+            total_loss, bce_loss, contrast_loss = model.compute_loss(img1, img2, labels, alpha)
+            running_contrast_loss += contrast_loss.item()
             
             # 统计
             running_loss += total_loss.item()
@@ -254,7 +229,7 @@ def validate(model, loader, alpha):
     # 返回平均损失和准确率
     avg_loss = running_loss / len(loader)
     avg_bce = running_bce_loss / len(loader)
-    avg_contrast = running_contrast_loss / len(loader) if args.matcher == 'contrastive' else 0
+    avg_contrast = running_contrast_loss / len(loader)
     
     return avg_loss, avg_bce, avg_contrast, accuracy
 

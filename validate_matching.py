@@ -13,8 +13,7 @@ from PIL import Image
 
 # 解析命令行参数
 parser = argparse.ArgumentParser(description='验证图像匹配模型')
-parser.add_argument('--model_path', type=str, default='./checkpoints/contrastive_best.pth', help='模型检查点路径')
-parser.add_argument('--matcher', type=str, default='contrastive', choices=['mlp', 'cosine', 'euclidean', 'attention', 'combined', 'contrastive'], help='匹配器类型')
+parser.add_argument('--model_path', type=str, default='./checkpoints/matcher_best.pth', help='模型检查点路径')
 parser.add_argument('--data_dir', type=str, default='./data/huali/match1', help='数据目录')
 parser.add_argument('--temperature', type=float, default=0.07, help='对比学习温度参数')
 parser.add_argument('--num_samples', type=int, default=10, help='要显示的样本数')
@@ -104,17 +103,8 @@ def main():
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
     # 创建模型
-    model = ImageMatchingModel(pretrained=True, backbone='small', matcher_type=args.matcher, temperature=args.temperature)
-    
-    # 加载检查点
-    if os.path.exists(args.model_path):
-        checkpoint = torch.load(args.model_path, map_location=device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        print(f"模型已加载，来自检查点: {args.model_path}")
-    else:
-        print(f"错误：找不到检查点 {args.model_path}")
-        return
-
+    model = ImageMatchingModel(pretrained=True, backbone='small', temperature=args.temperature)
+    model.load_matcher(args.model_path)
     model = model.to(device)
     model.eval()
     
