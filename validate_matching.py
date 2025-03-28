@@ -14,7 +14,7 @@ from PIL import Image
 # 解析命令行参数
 parser = argparse.ArgumentParser(description='验证图像匹配模型')
 parser.add_argument('--model_path', type=str, default='./checkpoints/matcher_best.pth', help='模型检查点路径')
-parser.add_argument('--data_dir', type=str, default='./data/huali/match1', help='数据目录')
+parser.add_argument('--data_dir', type=str, default='./data/huali/match2', help='数据目录')
 parser.add_argument('--temperature', type=float, default=0.07, help='对比学习温度参数')
 parser.add_argument('--num_samples', type=int, default=10, help='要显示的样本数')
 parser.add_argument('--batch_size', type=int, default=16, help='批次大小')
@@ -96,7 +96,7 @@ def main():
     ])
 
     # 创建数据集
-    dataset = MatchingDataset(args.data_dir, transform=transform)
+    dataset = MatchingDataset(args.data_dir, transform_p=transform, transform_c=transform)
     print(f"数据集大小: {len(dataset)} 个样本")
     
     # 创建数据加载器 (仅用于整体评估)

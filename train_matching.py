@@ -13,11 +13,11 @@ import os
 # 解析命令行参数
 parser = argparse.ArgumentParser(description='训练图像匹配模型')
 parser.add_argument('--batch_size', type=int, default=32, help='批次大小')
-parser.add_argument('--epochs', type=int, default=20, help='训练轮次')
+parser.add_argument('--epochs', type=int, default=100, help='训练轮次')
 parser.add_argument('--lr', type=float, default=0.001, help='学习率')
 parser.add_argument('--alpha', type=float, default=0.5, help='对比损失权重')
 parser.add_argument('--temperature', type=float, default=0.07, help='对比学习温度参数')
-parser.add_argument('--data_dir', type=str, default='./data/huali/match1', help='数据目录')
+parser.add_argument('--data_dir', type=str, default='./data/huali/match3', help='数据目录')
 parser.add_argument('--output_dir', type=str, default='checkpoints', help='模型保存目录')
 parser.add_argument('--val_split', type=float, default=0.2, help='验证集比例')
 args = parser.parse_args()
@@ -39,14 +39,23 @@ def init_weights(m):
 
 def main():
     # 数据预处理
-    transform = transforms.Compose([
+    transform_p = transforms.Compose([
+        transforms.RandomApply([
+            transforms.Resize(int(720 * scale)) for scale in [0.5, 0.6, 0.7, 0.8]
+        ], p=0.8),
+        transforms.RandomCrop(224),  # Random crop
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # Random color jitter
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    transform_c = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
     # 创建数据集
-    full_dataset = MatchingDataset(args.data_dir, transform=transform)
+    full_dataset = MatchingDataset(args.data_dir, transform_p=transform_p, transform_c=transform_c)
     
     # 划分训练集和验证集
     dataset_size = len(full_dataset)

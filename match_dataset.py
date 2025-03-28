@@ -18,7 +18,7 @@ class MatchingDataset(Dataset):
     每对图像由形如'X_p.jpg'和'X_c.jpg'命名的文件组成
     """
     
-    def __init__(self, root_dir, transform=None, img_size=(224, 224)):
+    def __init__(self, root_dir, transform_p=None, transform_c=None, img_size=(224, 224)):
         """
         初始化数据集
         
@@ -32,14 +32,13 @@ class MatchingDataset(Dataset):
         self.neg_dir = os.path.join(root_dir, 'neg')
         
         # 如果没有提供transform，创建一个默认的
-        if transform is None:
-            self.transform = transforms.Compose([
-                transforms.Resize(img_size),
-                transforms.ToTensor(),
-                transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-            ])
-        else:
-            self.transform = transform
+        transform_default = transforms.Compose([
+            transforms.Resize(img_size),
+            transforms.ToTensor(),
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        ])
+        self.transform_p = transform_p if transform_p is not None else transform_default
+        self.transform_c = transform_c if transform_c is not None else transform_default
             
         # 收集所有样本对
         self.sample_pairs = self._collect_pairs()
@@ -101,9 +100,8 @@ class MatchingDataset(Dataset):
         img2 = Image.open(img2_path).convert('RGB')
         
         # 应用变换
-        if self.transform:
-            img1 = self.transform(img1)
-            img2 = self.transform(img2)
+        img1 = self.transform_p(img1)
+        img2 = self.transform_c(img2)
             
         return img1, img2, torch.tensor(label, dtype=torch.float32)
 
