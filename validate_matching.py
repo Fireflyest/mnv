@@ -14,7 +14,7 @@ from PIL import Image
 # 解析命令行参数
 parser = argparse.ArgumentParser(description='验证图像匹配模型')
 parser.add_argument('--model_path', type=str, default='./checkpoints/matcher_best.pth', help='模型检查点路径')
-parser.add_argument('--data_dir', type=str, default='./data/huali/match2', help='数据目录')
+parser.add_argument('--data_dir', type=str, default='./data/huali/match3', help='数据目录')
 parser.add_argument('--temperature', type=float, default=0.07, help='对比学习温度参数')
 parser.add_argument('--num_samples', type=int, default=10, help='要显示的样本数')
 parser.add_argument('--batch_size', type=int, default=16, help='批次大小')
@@ -77,8 +77,8 @@ def visualize_predictions(model, dataset, num_samples=10):
         plt.text(0.5, 0.5, 
                  f"Prediction: {'1' if prediction == 1 else '0'} ({confidence:.2f})\n"
                  f"GroundTrue: {'1' if label == 1 else '0'}\n"
-                 f"{'true' if prediction == label else 'false'}",
-                 ha='center', va='center', fontsize=12)
+                 f"{'v' if prediction == label else 'x'}",
+                 ha='center', va='center', fontsize=18)
         plt.axis('off')
         
         sample_count += 1

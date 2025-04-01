@@ -31,14 +31,8 @@ class MatchingDataset(Dataset):
         self.pos_dir = os.path.join(root_dir, 'pos')
         self.neg_dir = os.path.join(root_dir, 'neg')
         
-        # 如果没有提供transform，创建一个默认的
-        transform_default = transforms.Compose([
-            transforms.Resize(img_size),
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-        ])
-        self.transform_p = transform_p if transform_p is not None else transform_default
-        self.transform_c = transform_c if transform_c is not None else transform_default
+        self.transform_p = transform_p
+        self.transform_c = transform_c
             
         # 收集所有样本对
         self.sample_pairs = self._collect_pairs()
@@ -100,15 +94,17 @@ class MatchingDataset(Dataset):
         img2 = Image.open(img2_path).convert('RGB')
         
         # 应用变换
-        img1 = self.transform_p(img1)
-        img2 = self.transform_c(img2)
+        if self.transform_p:
+            img1 = self.transform_p(img1)
+        if self.transform_c:
+            img2 = self.transform_c(img2)
             
         return img1, img2, torch.tensor(label, dtype=torch.float32)
 
 
 # 使用示例
 if __name__ == "__main__":
-    dataset_root = 'G:\\projects\\ai\\mnv\\data\\huali\\match1'
+    dataset_root = './data/huali/match3'
     
     # 创建数据集实例
     dataset = MatchingDataset(root_dir=dataset_root)
@@ -173,7 +169,7 @@ if __name__ == "__main__":
             axes[i, 1].axis('off')
         
         plt.tight_layout()
-        plt.show()
+        plt.savefig('./out/match_sample_images.png')
     
     # 显示一些样本图像
     show_sample_images(dataset, num_samples=3)

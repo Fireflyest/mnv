@@ -41,10 +41,10 @@ def main():
     # 数据预处理
     transform_p = transforms.Compose([
         transforms.RandomApply([
-            transforms.Resize(int(720 * scale)) for scale in [0.5, 0.6, 0.7, 0.8]
+            transforms.Resize(int(720 * scale)) for scale in [0.6, 0.7, 0.8]
         ], p=0.8),
         transforms.RandomCrop(224),  # Random crop
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # Random color jitter
+        # transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),  # Random color jitter
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
