@@ -9,7 +9,7 @@ import data
 import mobilenetv3
 
 device = (
-    "cuda:0"
+    "cuda:3"
     if torch.cuda.is_available()
     else "mps"
     if torch.backends.mps.is_available()
@@ -49,7 +49,7 @@ model = mobilenetv3.MultiHeadMobileNetV3(num_classes=5)
 print(model)
 
 # 冻结前面的层
-for param in model.mobilenet.parameters():
+for param in model.features.parameters():
     param.requires_grad = False
 for param in model.classifier.parameters():
     param.requires_grad = False
@@ -85,7 +85,7 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
             target1 = target1.to(device)
             target2 = target2.to(device).float()
             optimizer.zero_grad()
-            output1, output2, _ = model(data)
+            output1, output2, _, _, _, _, _ = model(data)
             loss1 = criterion1(output1, target1)
             loss2 = criterion2(output2.squeeze(), target2)
             loss = loss1 + loss2
@@ -112,7 +112,7 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
                 data = data.to(device)
                 target1 = target1.to(device)
                 target2 = target2.to(device).float()
-                output1, output2, _ = model(data)
+                output1, output2, _, _, _, _, _ = model(data)
                 loss1 = criterion1(output1, target1)
                 loss2 = criterion2(output2.squeeze(), target2)
                 loss = loss1 + loss2
