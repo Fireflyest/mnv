@@ -4,7 +4,7 @@ temp
 models
 checkpoints
 .vscode
-
+pretrain
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
