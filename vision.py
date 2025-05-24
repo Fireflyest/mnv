@@ -52,7 +52,7 @@ class GradCAM:
 
     def generate_cam_multi(self, input_image, target_class=None):
         self.model.eval()
-        class_output, _, _ = self.model(input_image)
+        class_output, _, _, = self.model(input_image)
 
         if target_class is None:
             target_class = class_output.argmax(dim=1).item()
@@ -77,14 +77,18 @@ class GradCAM:
         return cam
 
 def show_cam_on_image(img, mask, threshold=0.5):
+    # 确保mask的大小与img一致
+    if mask.shape != img.shape[:2]:
+        mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
+    
     heatmap = cv2.applyColorMap(np.uint8(255 * mask), cv2.COLORMAP_HOT)
     heatmap = np.float32(heatmap) / 255
     
     # 创建一个掩码，只保留热力图中高值部分
     mask_high_values = mask > threshold
-
+    
     # 将热力图与原始图像结合，低值部分显示原彩，高值部分显示热力图
     combined_image = np.float32(img).copy()
-    combined_image[mask_high_values] = combined_image[mask_high_values] * 0.5 + heatmap[mask_high_values] * 0.5
-
+    combined_image = cv2.addWeighted(combined_image, 0.5, heatmap, 0.5, 0)
+    
     return np.uint8(255 * combined_image)

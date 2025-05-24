@@ -74,7 +74,7 @@ model.to(device)
 # Select the target layer for Grad-CAM
 # target_layer = model.layer4[-1]
 # target_layer = model.features[-1]  # MobileNetV3 的最后一个卷积层
-target_layer = model.mobilenet.features[-1]  # MobileNetV3 的最后一个卷积层
+target_layer = model.features[-1]  # MobileNetV3 的最后一个卷积层
 
 
 # Initialize Grad-CAM

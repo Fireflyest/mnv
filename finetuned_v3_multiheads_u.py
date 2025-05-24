@@ -34,7 +34,7 @@ transform = transforms.Compose([
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
 ])
 
-dataset = data.HuaLiDataset_Multi(root_dir='./data/huali/train7', transform=transform)
+dataset = data.HuaLiDataset_Multi(root_dir='./data/huali/train8', transform=transform)
 
 # 划分训练集和验证集
 train_size = int(0.7 * len(dataset))
@@ -138,7 +138,7 @@ def train_model(model, criterion1, criterion2, optimizer, train_loader, test_loa
     return train_losses, test_losses, train_accs1, train_accs2, test_accs1, test_accs2
 
 # 训练模型
-train_losses, test_losses, train_accs1, train_accs2, test_accs1, test_accs2 = train_model(model, criterion1, criterion2, optimizer, train_loader, test_loader, epochs=3)
+train_losses, test_losses, train_accs1, train_accs2, test_accs1, test_accs2 = train_model(model, criterion1, criterion2, optimizer, train_loader, test_loader, epochs=50)
 
 # 保存最后的模型
 torch.save(model.state_dict(), './out/mobilenetv3_u_last_finetuned.pth')

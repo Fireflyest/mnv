@@ -55,7 +55,7 @@ images = images.to(device)
 
 # 加载预训练的 MobileNetV3 模型
 model = mobilenetv3_u.MultiHeadMobileNetV3(num_classes=5)
-state_dict = torch.load('./out/mobilenetv3_best_finetuned.pth', weights_only=True)
+state_dict = torch.load('./out/mobilenetv3_u_last_finetuned.pth', weights_only=True)
 new_state_dict = {}
 for k, v in state_dict.items():
     if k.startswith('mobilenet.classifier'):
@@ -74,7 +74,7 @@ model.to(device)
 # Select the target layer for Grad-CAM
 # target_layer = model.layer4[-1]
 # target_layer = model.features[-1]  # MobileNetV3 的最后一个卷积层
-target_layer = model.mobilenet.features[-1]  # MobileNetV3 的最后一个卷积层
+target_layer = model.features[-1]  # MobileNetV3 的最后一个卷积层
 
 
 # Initialize Grad-CAM

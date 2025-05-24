@@ -684,7 +684,7 @@ def build_blocks(layer_spec):
 
 
 class MobileNetV4(nn.Module):
-    def __init__(self, model, num_classes=1000, dropout_rate=0.2):
+    def __init__(self, model, dropout_rate=0.2):
         # MobileNetV4ConvSmall  MobileNetV4ConvMedium  MobileNetV4ConvLarge
         # MobileNetV4HybridMedium  MobileNetV4HybridLarge
         """Params to initiate MobilenNetV4
@@ -712,23 +712,23 @@ class MobileNetV4(nn.Module):
         # layer5   
         self.layer5 = build_blocks(self.spec['layer5'])
         
-        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        # self.avgpool = nn.AdaptiveAvgPool2d(1)
 
         # classifier and heads
         self.classifier = nn.Sequential(
-            nn.Linear(in_features=960, out_features=1280, bias=True),
+            nn.Linear(in_features=1280, out_features=1024, bias=True),
             nn.Hardswish(),
             nn.Dropout(p=dropout_rate, inplace=True),
             nn.Identity()
         )
         
         self.head1 = nn.Sequential(
-            nn.Linear(in_features=1280, out_features=5, bias=True),
+            nn.Linear(in_features=1024, out_features=5, bias=True),
             nn.Softmax(dim=1)
         )
         
         self.head2 = nn.Sequential(
-            nn.Linear(in_features=1280, out_features=1, bias=True),
+            nn.Linear(in_features=1024, out_features=1, bias=True),
             nn.Sigmoid()
         )
                
@@ -741,13 +741,13 @@ class MobileNetV4(nn.Module):
         x5 = self.layer5(x4)
         
         # Apply classifier and heads
-        x5_flat = torch.flatten(self.avgpool(x5), 1)
+        x5_flat = torch.flatten(x5, 1)
         x_cls = self.classifier(x5_flat)
         out1 = self.head1(x_cls)
         out2 = self.head2(x_cls)
 
-        return out1, out2, x0, x1, x2, x3, x5
+        return out1, out2, x0, x1, x2, x3, x4
 
-model = MobileNetV4("MobileNetV4ConvSmall", num_classes=5)
+model = MobileNetV4("MobileNetV4ConvSmall")
 print(model)
 
